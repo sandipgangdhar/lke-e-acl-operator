@@ -1,0 +1,4 @@
+manifests/02-secret.yaml
+02-secret.yaml
+*.key
+*.pem

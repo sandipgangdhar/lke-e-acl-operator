@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lke-acl-config
+  namespace: lke-acl-operator
+data:
+  LKE_CLUSTER_ID: "REPLACE_CLUSTER_ID"
+
+  # Comma-separated static CIDRs
+  STATIC_ACL_CIDRS: |
+    1.1.1.1/32,
+    2.2.2.2/32
+
+  ACL_LABEL_KEY: "lke.acl.linode.com/ready"
+
+  ACL_TAINT_KEY: "lke-acl.linode.com/not-ready"
+
+  RECONCILE_INTERVAL_SECONDS: "300"
+
+  LOG_LEVEL: "INFO"
