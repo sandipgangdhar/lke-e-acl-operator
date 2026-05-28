@@ -44,6 +44,9 @@ The LKE-E ACL Operator automatically:
 
 # 🏗️ Architecture
 
+## 🏗️ Architecture
+
+```text
 +-------------------------------------------------------+
 |                  LKE-E Control Plane                  |
 |                   Control Plane ACL                   |
@@ -65,6 +68,7 @@ The LKE-E ACL Operator automatically:
 |  Adds node IP to ACL        Preserves static CIDRs   |
 |                                                       |
 +-------------------------------------------------------+
+```
 
 ---
 
@@ -129,6 +133,7 @@ To prevent concurrent ACL corruption during autoscaling events:
 
 # 📁 Repository Structure
 
+```text
 .
 ├── manifests/
 │   ├── 00-namespace.yaml
@@ -146,6 +151,7 @@ To prevent concurrent ACL corruption during autoscaling events:
 ├── Dockerfile
 ├── README.md
 └── .gitignore
+```
 
 ---
 
