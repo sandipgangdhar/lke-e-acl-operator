@@ -1,0 +1,176 @@
+# 04-daemonset-acl-agent.yaml
+#
+# This DaemonSet deploys the LKE-E ACL Agent on every Kubernetes worker node.
+#
+# The ACL Agent is responsible for dynamically registering the worker node's
+# public IP address into the LKE-E Control Plane ACL so workloads running
+# on the node can securely execute Kubernetes API operations.
+#
+# -----------------------------------------------------
+# 📝 Responsibilities:
+#
+# 1️⃣ Detect worker node ExternalIP
+# 2️⃣ Convert node IP into /32 CIDR
+# 3️⃣ Acquire distributed ACL update lock
+# 4️⃣ Merge node IP into current LKE-E ACL
+# 5️⃣ Verify ACL update success
+# 6️⃣ Apply ACL readiness label to node
+# 7️⃣ Remove startup taint after ACL registration
+#
+# -----------------------------------------------------
+# 🔄 Operational Workflow:
+#
+# 1. Pod starts on worker node
+# 2. Script is copied locally from mounted ConfigMap
+# 3. ACL Agent detects node public IP
+# 4. ConfigMap-based distributed lock is acquired
+# 5. LKE-E ACL is safely updated
+# 6. Node is marked ACL-ready
+# 7. Startup taint is removed
+#
+# -----------------------------------------------------
+# 📝 Key Design Decisions:
+#
+# ✔ Uses DaemonSet to ensure one ACL Agent per worker node
+# ✔ Uses ConfigMap-mounted scripts for runtime flexibility
+# ✔ Avoids container image rebuilds for script-only changes
+# ✔ Uses ConfigMap-based distributed locking to avoid ACL race conditions
+# ✔ Uses hostNetwork for reliable node-level networking visibility
+#
+# -----------------------------------------------------
+# 🔐 Security Notes:
+#
+# - Linode API token is injected using Kubernetes Secret.
+# - RBAC permissions are limited to required resources.
+# - Distributed locking prevents concurrent ACL corruption.
+#
+# -----------------------------------------------------
+# 📌 Best Practices:
+#
+# - Do not manually edit LKE-E ACL from Linode Console.
+# - Use STATIC_ACL_CIDRS for permanent admin/VPN IPs.
+# - Use startup taints to prevent premature workload scheduling.
+# - Use LOG_LEVEL=INFO in production environments.
+# - Use LOG_LEVEL=DEBUG only during troubleshooting.
+#
+# -----------------------------------------------------
+# 🖋️ Author:
+# - Sandip Gangdhar
+# - GitHub: https://github.com/sandipgangdhar
+#
+# © LKE-E ACL Operator | Developed by Gangdhar | 2026
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  # Runs one ACL Agent pod on every worker node.
+  name: lke-acl-agent
+  namespace: lke-acl-operator
+spec:
+  selector:
+    matchLabels:
+      app: lke-acl-agent
+
+  template:
+    metadata:
+      labels:
+        app: lke-acl-agent
+
+    spec:
+      # Uses RBAC permissions defined in 03-rbac.yaml.
+      serviceAccountName: lke-acl-operator
+
+      # Allows the pod to use host networking.
+      # Helpful for node-level visibility and enterprise debugging.
+      hostNetwork: true
+
+      # Allows ACL Agent to run even if the node has startup taints.
+      tolerations:
+        - operator: Exists
+
+      containers:
+        - name: acl-agent
+
+          # Runtime image with bash, curl, jq, kubectl, and CA certificates.
+          image: ghcr.io/sandipgangdhar/lke-e-acl-operator:0.1.0
+
+          # Copy script from ConfigMap volume to /tmp before execution.
+          # This avoids running directly from projected ConfigMap volume.
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+          
+              echo "Copying ACL agent script locally..."
+              cp --dereference /scripts/acl-agent.sh /tmp/acl-agent.sh
+              chmod u+x /tmp/acl-agent.sh
+          
+              echo "Starting ACL agent..."
+              exec /tmp/acl-agent.sh
+
+          env:
+            # Current Kubernetes node where this DaemonSet pod is running.
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+            # Target LKE-E cluster ID.
+            - name: LKE_CLUSTER_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: lke-acl-config
+                  key: LKE_CLUSTER_ID
+
+            # Label applied after node IP is successfully present in ACL.
+            - name: ACL_LABEL_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: lke-acl-config
+                  key: ACL_LABEL_KEY
+
+            # Taint removed after ACL registration succeeds.
+            - name: ACL_TAINT_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: lke-acl-config
+                  key: ACL_TAINT_KEY
+
+            # Permanent admin/VPN/bastion CIDRs to preserve in ACL.
+            - name: STATIC_ACL_CIDRS
+              valueFrom:
+                configMapKeyRef:
+                  name: lke-acl-config
+                  key: STATIC_ACL_CIDRS
+
+            # Linode API token stored securely in Kubernetes Secret.
+            - name: LINODE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: linode-api-secret
+                  key: LINODE_TOKEN
+
+            # Runtime log level: DEBUG, INFO, WARN, ERROR.
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: lke-acl-config
+                  key: LOG_LEVEL
+
+          volumeMounts:
+            # Mount ACL Agent script from ConfigMap.
+            - name: script-volume
+              mountPath: /scripts
+
+          securityContext:
+            # Current script does not require privileged mode.
+            # Root is used for broad compatibility with copied script execution.
+            runAsUser: 0
+
+      volumes:
+        # ConfigMap generated using:
+        # kubectl create configmap acl-agent-script --from-file=scripts/acl-agent.sh
+        - name: script-volume
+          configMap:
+            name: acl-agent-script
+            defaultMode: 0755

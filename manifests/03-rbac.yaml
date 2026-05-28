@@ -1,14 +1,29 @@
+# 03-rbac.yaml
+#
+# Defines RBAC permissions for the LKE-E ACL Operator.
+#
+# The operator needs permissions to:
+# - Read Kubernetes nodes and pods
+# - Patch nodes with ACL readiness labels
+# - Remove startup taints after ACL registration
+# - Create/delete ConfigMap-based locks for safe ACL updates
+#
+# © LKE-E ACL Operator | Developed by Sandip Gangdhar | 2026
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  # ServiceAccount used by ACL Agent DaemonSet and Reconciler CronJob.
   name: lke-acl-operator
   namespace: lke-acl-operator
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  # Cluster-wide permissions are required because nodes are cluster-scoped.
   name: lke-acl-operator
 rules:
+  # Required to read node ExternalIPs and patch readiness labels/taints.
   - apiGroups: [""]
     resources:
       - nodes
@@ -19,6 +34,7 @@ rules:
       - patch
       - update
 
+  # Required for future workload/node placement checks and troubleshooting.
   - apiGroups: [""]
     resources:
       - pods
@@ -26,10 +42,20 @@ rules:
       - get
       - list
 
+  # Required for ConfigMap-based distributed locking.
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - create
+      - delete
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  # Binds the ServiceAccount to the ClusterRole.
   name: lke-acl-operator
 subjects:
   - kind: ServiceAccount

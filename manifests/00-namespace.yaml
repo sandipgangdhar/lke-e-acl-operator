@@ -1,4 +1,16 @@
+# 00-namespace.yaml
+#
+# Creates a dedicated namespace for the LKE-E ACL Operator.
+#
+# All operator components such as ConfigMaps, Secrets, DaemonSets,
+# CronJobs, and supporting resources should be deployed inside this
+# namespace for clean isolation.
+#
+# © LKE-E ACL Operator | Developed by Sandip Gangdhar | 2026
+---
 apiVersion: v1
 kind: Namespace
 metadata:
+  # Namespace where ConfigMaps, Secrets, DaemonSet, CronJob,
+  # and policy resources will be deployed.
   name: lke-acl-operator

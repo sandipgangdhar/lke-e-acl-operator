@@ -1,20 +1,122 @@
+# 01-configmap.yaml
+#
+# This ConfigMap defines the runtime configuration for the
+# LKE-E ACL Operator.
+#
+# The operator dynamically manages the LKE-E Control Plane ACL
+# by automatically adding/removing worker node public IPs
+# and ensuring authorized static CIDRs remain present.
+#
+# -----------------------------------------------------
+# 📝 Parameters:
+#
+# 1️⃣ LKE_CLUSTER_ID
+#    - Target LKE-E cluster ID whose ACL will be managed.
+#
+# 2️⃣ STATIC_ACL_CIDRS
+#    - Comma-separated CIDRs that should always remain
+#      present in the ACL.
+#    - Intended for:
+#         • VPN gateways
+#         • Bastion hosts
+#         • Office public IPs
+#         • CI/CD systems
+#
+# 3️⃣ ACL_LABEL_KEY
+#    - Node label applied after successful ACL registration.
+#
+# 4️⃣ ACL_TAINT_KEY
+#    - Startup taint removed after node ACL registration succeeds.
+#
+# 5️⃣ RECONCILE_INTERVAL_SECONDS
+#    - Interval for periodic ACL reconciliation and stale IP cleanup.
+#
+# 6️⃣ LOG_LEVEL
+#    - Controls operator log verbosity.
+#
+# -----------------------------------------------------
+# 🔄 Operational Workflow:
+#
+# 1. Worker node starts
+# 2. ACL agent detects node ExternalIP
+# 3. Node IP is added into LKE-E ACL
+# 4. Node readiness label is applied
+# 5. Startup taint is removed
+# 6. Periodic reconciler removes stale node IPs
+#
+# -----------------------------------------------------
+# 📌 Best Practices:
+#
+# - Do not manually modify ACL entries from Linode Console.
+# - Use STATIC_ACL_CIDRS for permanent authorized CIDRs.
+# - Keep RECONCILE_INTERVAL_SECONDS >= 300 in production.
+# - Use LOG_LEVEL=INFO for production deployments.
+# - Use LOG_LEVEL=DEBUG only during troubleshooting.
+#
+# -----------------------------------------------------
+# 🖋️ Author:
+# - Sandip Gangdhar
+# - GitHub: https://github.com/sandipgangdhar
+#
+# © LKE-E ACL Operator | Developed by Sandip Gangdhar | 2026
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: lke-acl-config
   namespace: lke-acl-operator
+
 data:
-  LKE_CLUSTER_ID: "REPLACE_CLUSTER_ID"
+  # LKE-E Cluster ID
+  # Example:
+  # LKE_CLUSTER_ID: "607897"
+  LKE_CLUSTER_ID: "607897"
 
-  # Comma-separated static CIDRs
-  STATIC_ACL_CIDRS: |
-    1.1.1.1/32,
-    2.2.2.2/32
+  # Comma-separated static CIDRs that should always
+  # remain in the LKE-E ACL in addition to worker node IPs.
+  #
+  # Example:
+  # STATIC_ACL_CIDRS: "203.0.113.10/32,198.51.100.20/32"
+  #
+  # Leave empty if no additional CIDRs are required.
+  STATIC_ACL_CIDRS: ""
 
+  # Node label added after the worker node IP
+  # is successfully added into the LKE-E ACL.
+  #
+  # Example resulting node label:
+  # lke.acl.linode.com/ready=true
   ACL_LABEL_KEY: "lke.acl.linode.com/ready"
 
+  # Optional startup taint removed after ACL registration succeeds.
+  #
+  # Intended use:
+  # Prevent workloads from scheduling on a node until
+  # its IP is successfully added into the LKE-E ACL.
+  #
+  # Example taint:
+  # lke-acl.linode.com/not-ready=true:NoSchedule
   ACL_TAINT_KEY: "lke-acl.linode.com/not-ready"
 
+  # CronJob reconcile interval in seconds.
+  #
+  # The reconciler periodically:
+  # 1. Detects active worker node IPs
+  # 2. Removes stale node IPs from ACL
+  # 3. Ensures STATIC_ACL_CIDRS remain present
+  #
+  # Recommended:
+  # 300 = every 5 minutes
   RECONCILE_INTERVAL_SECONDS: "300"
 
+  # Log verbosity level.
+  #
+  # Supported values:
+  # DEBUG  = verbose troubleshooting logs
+  # INFO   = standard operational logs
+  # WARN   = warning messages only
+  # ERROR  = error messages only
+  #
+  # Recommended for production:
+  # INFO
   LOG_LEVEL: "INFO"
