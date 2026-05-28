@@ -44,7 +44,27 @@ The LKE-E ACL Operator automatically:
 
 # 🏗️ Architecture
 
-text +-------------------------------------------------------+ |                  LKE-E Control Plane                  | |                   Control Plane ACL                   | +-------------------------+-----------------------------+                           ^                           |                   Linode API (PUT ACL)                           | +-------------------------------------------------------+ |                 LKE-E ACL Operator                    | |                                                       | |  +-------------------+    +------------------------+  | |  | ACL Agent         |    | ACL Reconciler        |  | |  | (DaemonSet)       |    | (CronJob)             |  | |  +-------------------+    +------------------------+  | |          |                            |               | |          |                            |               | |  Runs on every node         Removes stale node IPs   | |  Adds node IP to ACL        Preserves static CIDRs   | |                                                       | +-------------------------------------------------------+ 
++-------------------------------------------------------+
+|                  LKE-E Control Plane                  |
+|                   Control Plane ACL                   |
++-------------------------+-----------------------------+
+                          ^
+                          |
+                  Linode API (PUT ACL)
+                          |
++-------------------------------------------------------+
+|                 LKE-E ACL Operator                    |
+|                                                       |
+|  +-------------------+    +------------------------+  |
+|  | ACL Agent         |    | ACL Reconciler        |  |
+|  | (DaemonSet)       |    | (CronJob)             |  |
+|  +-------------------+    +------------------------+  |
+|          |                            |               |
+|          |                            |               |
+|  Runs on every node         Removes stale node IPs   |
+|  Adds node IP to ACL        Preserves static CIDRs   |
+|                                                       |
++-------------------------------------------------------+
 
 ---
 
@@ -109,7 +129,23 @@ To prevent concurrent ACL corruption during autoscaling events:
 
 # 📁 Repository Structure
 
-text . ├── manifests/ │   ├── 00-namespace.yaml │   ├── 01-configmap.yaml │   ├── 02-secret.example.yaml │   ├── 03-rbac.yaml │   ├── 04-daemonset-acl-agent.yaml │   └── 05-cronjob-acl-reconciler.yaml │ ├── scripts/ │   ├── acl-agent.sh │   ├── acl-reconciler.sh │   └── create-script-configmaps.sh │ ├── Dockerfile ├── README.md └── .gitignore 
+.
+├── manifests/
+│   ├── 00-namespace.yaml
+│   ├── 01-configmap.yaml
+│   ├── 02-secret.example.yaml
+│   ├── 03-rbac.yaml
+│   ├── 04-daemonset-acl-agent.yaml
+│   └── 05-cronjob-acl-reconciler.yaml
+│
+├── scripts/
+│   ├── acl-agent.sh
+│   ├── acl-reconciler.sh
+│   └── create-script-configmaps.sh
+│
+├── Dockerfile
+├── README.md
+└── .gitignore
 
 ---
 
